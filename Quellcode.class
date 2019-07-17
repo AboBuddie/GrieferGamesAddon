@@ -1,0 +1,1024 @@
+package de.abobuddie.gga;
+
+import net.labymod.api.LabyModAddon;
+import net.labymod.api.events.MessageReceiveEvent;
+import net.labymod.api.events.MessageSendEvent;
+import net.labymod.api.events.TabListEvent;
+import net.labymod.main.LabyMod;
+import net.labymod.servermanager.ChatDisplayAction;
+import net.labymod.servermanager.Server;
+import net.labymod.settings.elements.*;
+import net.labymod.utils.Consumer;
+import net.labymod.utils.Material;
+import net.labymod.utils.ServerData;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.StringUtils;
+import org.lwjgl.Sys;
+import tv.twitch.chat.Chat;
+
+import java.awt.*;
+import java.util.List;
+import java.net.URI;
+import java.util.Random;
+import java.util.regex.Pattern;
+
+public class GrieferGamesAddon extends LabyModAddon {
+
+    public boolean enabled = true;
+    public boolean directPortal = true;
+    public boolean ggWerbung = false;
+    public boolean paybackEnabled = false;
+    public boolean customEnabled = true;
+    public boolean commandsEnabled = true;
+
+    public String nameFokus = "Name1";
+    public String nameFokus2 = "Name2";
+    public boolean payAll = false;
+
+    public boolean hideSupremeBar = false;
+    public boolean hideFakeMoney = false;
+
+    public boolean MSGschat = false;
+    public boolean Moneyschat = false;
+    public boolean Bankschat = false;
+    public boolean Mobremoverschat = false;
+    public boolean Kontoschat = false;
+    public boolean Plotschat = false;
+
+    public boolean chatFilterEnabled = false;
+    public String chatFilter = "Disabled";
+    public boolean chatEnabled = true;
+
+    public boolean statusEnabled = false;
+    public String status = "";
+
+    // §r§aKontostand:§r§c $0§r
+    // %money = wird durch das Guthaben auf dem Server ersetzt
+    public String kontostandMessage = "&aDein Guthaben beträgt &e%money$&a.";
+
+    // §r§8[§r§3GrieferBank§r§8] §r§3Dein Kontostand: §r§e0§r
+    // %moneyn = wird durch das Guthaben auf der Bank ersetzt
+    public String bankguthabenMessage = "&aDu hast auf der Bank &e%money$&a.";
+
+    // §r§cLegende | Pucky04§r §r§ahat dir $1 gegeben.§r
+    // %money = wird durch das Geld ersetzt was man erhält
+    // %player = wird durch den Spieler von dem man das Geld erhalten hat ersetzt
+    public String getmoneyMessage = "&aDu hast von dem Spieler &e%player &aden folgenden Betrag erhalten: &e%money$";
+
+    // §r§aDu hast §r§f§lSupreme | The_Fudge§r§a $1 gegeben.§r
+    // %money = wird durch das Geld ersetzt was man erhält
+    // %player = wird durch den Spieler von dem man das Geld erhalten hat ersetzt
+    public String getSendmoneyMessage = "&aDu hast dem Spieler &e%player &afolgenden Betrag überwiesen: &e%money";
+
+    // §r§6[§r§aGriefer | Robs90§r§6 -> §r§cmir§r§6] §rhi! :D§r
+    // %message = wird durch die Nachricht die ich erhalte ersetzt
+    // %player = wird durch den Spieler von dem die Nachricht kommt ersetzt
+    public String getMSGMessage = "&c[&4PRIVAT&c] &e%player&8: &f%message";
+
+    // §r§6[§r§cmir§r§6 -> §r§aSupreme | 1Jetset4LIVE§r§6] §rups§r
+    // %message = wird durch die Nachricht die ich erhalte ersetzt
+    // %player = wird durch den Spieler von dem die Nachricht gesendet wurde ersetzt
+    public String getSendMSGMessage = "&c[&4PRIVAT&c] &e%player&8: &f%message";
+
+    // §r§7[§r§6Plot Chat§r§7][§r§6305;158§r§7] §r§4§lGriefer | AboBuddie§r§7: §r§6test§r
+    public boolean deleteIDPC = true;
+
+    public boolean cancelMessages = false;
+
+    public void showMessage(String message) {
+        LabyMod.getInstance().displayMessageInChat(message.replaceAll("&", "§"));
+    }
+
+    public String prefix = "&7[&4&lGrieferGamesAddon&7]";
+
+    public Integer wechseln = 0;
+    public boolean wechselnEnabled = false;
+
+    private final Pattern STRIP_COLOR_PATTERN = Pattern.compile("(?i)" + String.valueOf('&') + "[0-9A-FK-OR]");
+    public String stripcolor(String input) {
+        return input == null?null:STRIP_COLOR_PATTERN.matcher(input).replaceAll("");
+    }
+
+    @Override
+    public void onEnable() {
+
+        this.getApi().registerServerSupport(this, new Server("GrieferGames", "griefergames.net") {
+
+            @Override
+            public void onJoin(net.minecraft.client.multiplayer.ServerData serverData) {
+
+            }
+
+            @Override
+            public ChatDisplayAction handleChatMessage(String s1, String s) throws Exception {
+                if(enabled) {
+                    String[] args = s.split(" ");
+                    String handle = args[0].replaceAll("§r", "");
+
+                    if(customEnabled) {
+                        if(s1.contains("Du kannst erst 15 Sekunden nach dem Beitreten hiermit interagieren.")) {
+                            handle = "";
+                        } else if(s1.contains("Du hast noch") && s1.contains("Booster")) {
+                            handle = "";
+                        } else if(s1.contains("Du kannst jetzt wegen dem Server Booster von")) {
+                            handle = "";
+                        } else if(s1.contains("Du kannst wieder fliegen.")) {
+                            handle = "";
+                        } else if(s1.contains("Du kannst nur jede 10 Sekunden schreiben.")) {
+                            handle = "";
+                        }
+                    }
+
+                    if(Plotschat) {
+                        if(s1.startsWith("[Plot Chat]")) {
+                            return ChatDisplayAction.SWAP;
+                        }
+                    }
+                    if(Kontoschat) {
+                        if(customEnabled) {
+                            String[] custom = kontostandMessage.replaceAll("&", "§").split(" ");
+                            if(handle.equalsIgnoreCase(custom[0])) {
+                                return ChatDisplayAction.SWAP;
+                            }
+                        }
+                        if(s1.startsWith("Kontostand:")) {
+                            return ChatDisplayAction.SWAP;
+                        }
+                    }
+                    if(MSGschat) { // args=§r§c[§r§4PRIVAT§r§c] | custom=§c[§4PRIVAT§c] | custom1=§c[§4PRIVAT§c]
+                        if(customEnabled) {
+                            String[] custom = getSendMSGMessage.replaceAll("&", "§").split(" ");
+                            String[] custom1 = getMSGMessage.replaceAll("&", "§").split(" ");
+                            if(handle.equalsIgnoreCase(custom[0]) || handle.equalsIgnoreCase(custom1[0])) {
+                                return ChatDisplayAction.SWAP;
+                            }
+                        }
+                        if(s1.startsWith("[mir")) {
+                            return ChatDisplayAction.SWAP;
+                        }
+                        if(args.length >= 4) {
+                            if(s1.startsWith("[")) {
+                                String[] args1 = s1.split(" ");
+                                if (args1[3].equalsIgnoreCase("->")) {
+                                    return ChatDisplayAction.SWAP;
+                                }
+                            }
+                        }
+                    }
+                    if(Moneyschat) {
+                        if(args.length == 7) {
+                            String[] args1 = s1.split(" ");
+                            if (args1[3].equalsIgnoreCase("hat") && args1[6].equalsIgnoreCase("gegeben.")) {
+                                return ChatDisplayAction.SWAP;
+                            } else if (args1[0].equalsIgnoreCase("Du") && args1[6].equalsIgnoreCase("gegeben.")) {
+                                return ChatDisplayAction.SWAP;
+                            }
+                        }
+                        if(customEnabled) {
+                            String[] custom = getSendmoneyMessage.replaceAll("&", "§").split(" ");
+                            String[] custom1 = getmoneyMessage.replaceAll("&", "§").split(" ");
+                            if (handle.equalsIgnoreCase(custom[0]) || handle.equalsIgnoreCase(custom1[0])) {
+                                return ChatDisplayAction.SWAP;
+                            }
+                        }
+                    }
+                    if (Bankschat) {
+                        if(customEnabled) {
+                            String[] custom = bankguthabenMessage.replaceAll("&", "§").split(" ");
+                            if (handle.equalsIgnoreCase(custom[0])) {
+                                return ChatDisplayAction.SWAP;
+                            }
+                        }
+                        if (s1.startsWith("[GrieferBank]")) {
+                            return ChatDisplayAction.SWAP;
+                        }
+                    }
+                    if (Mobremoverschat) {
+                        if (s1.startsWith("[MobRemover]")) {
+                            return ChatDisplayAction.SWAP;
+                        }
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public void handlePluginMessage(String s, PacketBuffer packetBuffer) throws Exception {
+
+            }
+
+            @Override
+            public void handleTabInfoMessage(TabListEvent.Type type, String s, String s1) throws Exception {
+
+            }
+
+            @Override
+            public void fillSubSettings(List<SettingsElement> list) {
+
+            }
+        });
+
+        this.getApi().getEventManager().register(new MessageSendEvent() {
+            @Override
+            public boolean onSend(String s) {
+                if(enabled) {
+                    if(commandsEnabled) {
+                        if(s.startsWith(".")) {
+                            String[] args = s.split(" ");
+                            if(args[0].equalsIgnoreCase(".help") || args[0].equalsIgnoreCase(".")) {
+                                showMessage("§f§l§m-----[§r §4§l§nGrieferGamesAddon§r §f§l§m]-----");
+                                showMessage(" ");
+                                showMessage("§a.farm <CB1-CB16>");
+                                showMessage("§a.wechseln <Anzahl>");
+                                showMessage("§a.koz (Kopf oder Zahl)");
+                                showMessage("§a.grieferwert");
+                                showMessage("§a.tutorial (Erklärung des Addons)");
+                                showMessage("§a.helper");
+                                showMessage(" ");
+                                showMessage("§c[§9Bitte beachte das der .farm Befehlt nur auf dem jeweiligem CB-Server funtioniert!§c]");
+                            } else if(args[0].equalsIgnoreCase(".farm")) {
+                                if (args.length == 1) {
+                                    showMessage("§a.farm <CB1-CB16>");
+                                } else if (args.length >= 2) {
+                                    if (args[1].equalsIgnoreCase("cb1")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h dungeon");
+                                    } else if(args[1].equalsIgnoreCase("cb2")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h lpm");
+                                    } else if(args[1].equalsIgnoreCase("cb3")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h xpfarm");
+                                    } else if(args[1].equalsIgnoreCase("cb4")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h dorf");
+                                    } else if(args[1].equalsIgnoreCase("cb5")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h jeditempel");
+                                    } else if(args[1].equalsIgnoreCase("cb7")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h hölle");
+                                    } else if(args[1].equalsIgnoreCase("cb8")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h fr3acfarm");
+                                    } else if(args[1].equalsIgnoreCase("cb11")) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/p h emp");
+                                    } else {
+                                        showMessage(prefix + " §9Auf diesem CB ist noch keine Farm registriert!");
+                                    }
+                                }
+                            } else if(args[0].equalsIgnoreCase(".wechseln")) {
+                                if (args.length == 1) {
+                                    showMessage("§a.wechseln <Anzahl>");
+                                } else if (args.length >= 2) {
+                                    try {
+                                        wechseln = Integer.valueOf(args[1]);
+                                        wechselnEnabled = true;
+                                        showMessage(prefix + " §aDer Wechselwert wrude auf §e§n" + wechseln + "§e$§a gesetzt!");
+                                    } catch (Exception e) {
+                                        showMessage(prefix + " §cFalsche Angaben!");
+                                    }
+                                }
+                            } else if(args[0].equalsIgnoreCase(".koz")) {
+                                Integer i = randomNumber(2);
+                                if (i == 1) {
+                                    showMessage(prefix + " §aKopf!");
+                                } else {
+                                    showMessage(prefix + " §aZahl!");
+                                }
+                            } else if(args[0].equalsIgnoreCase(".grieferwert")) {
+                                try {
+                                    Desktop desktop = java.awt.Desktop.getDesktop();
+                                    URI url = new URI("https://www.grieferwert.net/");
+                                    desktop.browse(url);
+                                    showMessage(prefix + " §aGrieferwert wurde geöffnet!");
+                                } catch (Exception e) {
+                                    showMessage(prefix + " §cEs ist etwas schief gelaufen!");
+                                }
+                            } else if(args[0].equalsIgnoreCase(".tutorial")) {
+                                try {
+                                    Desktop desktop = Desktop.getDesktop();
+                                    URI url = new URI("https://www.youtube.com/watch?v=ywge9B8b8PA&feature=youtu.be");
+                                    desktop.browse(url);
+                                    showMessage(prefix + " §aDas Tutorial wurde geöffnet!");
+                                } catch (Exception e) {
+                                    showMessage(prefix + " §cEs ist etwas schief gelaufen!");
+                                }
+                            } else if(args[0].equalsIgnoreCase(".helper") || args[0].equalsIgnoreCase(".helfer")) {
+                                showMessage("§f§l§m------[§b§l Helfer §f§l§m]------");
+                                showMessage(" ");
+                                showMessage(" §9Sweet_Chilly und The_Fudge");
+                                showMessage(" ");
+                                showMessage("§e-> §cBugfixes");
+                                showMessage("§e-> ein paar Ideen");
+                                showMessage(" ");
+                                showMessage(" §4§l<3 <3 <3 §c§l§nDanke §4§l<3 <3 <3");
+                            } else {
+                                showMessage(prefix + " §cDieser Command ist nicht vergeben! Mit .help siehst du jeden Command!");
+                            }
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        });
+
+        this.getApi().getEventManager().registerOnJoin(new Consumer<ServerData>() {
+            @Override
+            public void accept(ServerData serverData) {
+                if(enabled) {
+                    if(serverData.getIp().contains("griefergames.net")) {
+                        if(serverData.getPort() == 25565) {
+                            if(directPortal) {
+                                Minecraft.getMinecraft().thePlayer.sendChatMessage("/portal");
+                            }
+                        }
+
+                    }
+                }
+            }
+        });
+
+        this.getApi().getEventManager().register(new MessageReceiveEvent() {
+            @Override
+            public boolean onReceive(String s, String s1) {
+                if(enabled) {
+                    String[] args = s.split(" ");
+                    String[] args1 = s1.split(" ");
+
+                    if(!chatEnabled) {
+                        return true;
+                    }
+
+                    if(chatFilterEnabled) {
+                        if(!s.contains(chatFilter)) {
+                            return true;
+                        }
+                    }
+
+                    if(cancelMessages) {
+                        if(s.startsWith("§r§f└────────────§r§f§l[§r§6§lGrieferGames§r§f§l]§r§f────────────┘§r")) {
+                            cancelMessages = false;
+                            return true;
+                        } else {
+                            return true;
+                        }
+                    }
+
+                    if(!ggWerbung) {
+                        if(s.startsWith("§r§f┌────────────§r§f§l[§r§6§lGrieferGames§r§f§l]§r§f────────────┐§r")) {
+                            cancelMessages = true;
+                            return true;
+                        }
+                    }
+
+                    if(hideSupremeBar) {
+                        if(s.startsWith("§r§8»§r")) {
+                            return true;
+                        }
+                    }
+
+                    if(hideFakeMoney) {
+                        if(s.contains("hat dir") && s.contains("gegeben") && s.contains("$")) {
+                            if(s.contains(":")) {
+                                return true;
+                            }
+                        }
+                    }
+
+                    if(statusEnabled) {
+                        if(args[0].equalsIgnoreCase("§r§2§l[Switcher]") && args[1].equalsIgnoreCase("§r§eDaten")) {
+                            Minecraft.getMinecraft().thePlayer.sendChatMessage(status.replaceAll("§", "&"));
+                        }
+                    }
+
+                    if(deleteIDPC) {
+                        if(args.length >= 2) {
+                            if(s.startsWith("§r§7[§r§6Plot Chat§r§7][")) {
+                                String text = "";
+                                for(int i = 2; i < args.length; i++) {
+                                    text = text + " " + args[i];
+                                }
+                                text = "§7[§6Plot Chat§7]" + text;
+                                showMessage(text);
+                                return true;
+                            }
+                        }
+                    }
+
+                    if(wechselnEnabled) {
+                        if(args.length == 7) {
+                            if(args[6].startsWith("gegeben")) {
+                                String amount = args[5];
+                                Integer erhalten = Integer.valueOf(amount.substring(1));
+                                if(erhalten == wechseln) {
+                                    wechselnEnabled = false;
+                                } else if(erhalten > wechseln) {
+                                    Integer payBack = (erhalten - wechseln);
+                                    String playername = args1[2];
+                                    playername = playername.substring(0,playername.length()-2);
+                                    Minecraft.getMinecraft().thePlayer.sendChatMessage("/pay " + playername + " " + payBack);
+                                    wechselnEnabled = false;
+                                } else if(erhalten < wechseln) {
+                                    wechseln = (wechseln - erhalten);
+                                }
+                            }
+                        }
+                    }
+
+                    if(paybackEnabled) {
+                        if(args.length == 7) {
+                            if(args[6].startsWith("gegeben")) {
+                                String playername = args1[2];
+                                String amount = args[5];
+                                amount = amount.substring(1);
+                                if(payAll) {
+                                    Minecraft.getMinecraft().thePlayer.sendChatMessage("/pay " + playername + " " + amount);
+                                } else {
+                                    if(playername.equalsIgnoreCase(nameFokus) || playername.equalsIgnoreCase(nameFokus2)) {
+                                        Minecraft.getMinecraft().thePlayer.sendChatMessage("/pay " + playername + " " + amount);
+                                    }
+                                }
+
+
+                            }
+                        }
+                    }
+                    if(s.startsWith("§r§aKontostand:§r§c")) {
+                        if(customEnabled) {
+                            if(!kontostandMessage.startsWith("<>")) {
+                                String guthaben = args[1];
+                                guthaben = guthaben.substring(1);
+                                guthaben = guthaben.substring(0, guthaben.length() -2);
+                                showMessage(kontostandMessage.replaceAll("%money", guthaben));
+                                return true;
+                            }
+                        }
+                    }
+                    if(s.startsWith("§r§8[§r§3GrieferBank§r§8]")) {
+                        if(args[1].equalsIgnoreCase("§r§3Dein")) {
+                            if(customEnabled) {
+                                if(!bankguthabenMessage.startsWith("<>")) {
+                                    String guthaben = args[3];
+                                    guthaben = guthaben.substring(4);
+                                    guthaben = guthaben.substring(0, guthaben.length() -2);
+                                    showMessage(bankguthabenMessage.replaceAll("%money", guthaben));
+                                    return true;
+                                }
+
+                            }
+                        }
+
+                    }
+                    if(args.length == 7) {
+                        if(args[3].equalsIgnoreCase("§r§ahat") && args[6].equalsIgnoreCase("gegeben.§r")) {
+                            if(customEnabled) {
+                                if(!getmoneyMessage.startsWith("<>")) {
+                                    String guthaben = args[5];
+                                    guthaben = guthaben.substring(1);
+                                    String player = args1[2];
+                                    showMessage(getmoneyMessage.replaceAll("%money", guthaben).replaceAll("%player", player));
+                                    return true;
+                                }
+
+                            }
+                        }
+                    }//§r§aDu hast §r§f§lSupreme | The_Fudge§r§a $1 gegeben.§r
+                    if(args.length == 7) {
+                        if(args[0].equalsIgnoreCase("§r§aDu") && args[6].equalsIgnoreCase("gegeben.§r")) {
+                            if(customEnabled) {
+                                if(!getSendmoneyMessage.startsWith("<>")) {
+                                    String guthaben = args[5];
+                                    guthaben = guthaben.substring(1);
+                                    String player = args1[4];
+                                    showMessage(getSendmoneyMessage.replaceAll("%money", guthaben).replaceAll("%player", player));
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    if(s.startsWith("§r§6[")) {
+                        if(args[3].equalsIgnoreCase("->")){
+                            if(customEnabled) {
+                                if(!getMSGMessage.startsWith("<>")) {
+                                    String player = args1[2];
+                                    String message = "";
+                                    for(int i = 5; i < args.length; i++) {
+                                        message = message + " " + args[i];
+                                    }
+                                    message = message.replaceFirst(" ", "");
+                                    showMessage(getMSGMessage.replaceAll("%player", player).replaceAll("%message", message).replaceAll("%me", Minecraft.getMinecraft().thePlayer.getName()));
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    if(s.startsWith("§r§6[§r§cmir§r§6")) {
+                        if(customEnabled) {
+                            if(!getSendMSGMessage.startsWith("<>")) {
+                                String message = "";
+                                String player = args1[4];
+                                for(int i = 5; i < args.length; i++) {
+                                    message = message + " " + args[i];
+                                }
+                                message = message.replaceFirst(" ", "");
+                                showMessage(getSendMSGMessage.replaceAll("%player", player).replaceAll("%message", message).replaceAll("%me", Minecraft.getMinecraft().thePlayer.getName()));
+                                return true;
+                            }
+
+                        }
+                    }
+                }
+                return false;
+            }
+        });
+
+    }
+
+    @Override
+    public void loadConfig() {
+        if(this.getConfig().has("enabled")) {
+            enabled = getConfig().get("enabled").getAsBoolean();
+        } else {
+            enabled = true;
+        }
+        if(this.getConfig().has("directPortal")) {
+            directPortal = getConfig().get("directPortal").getAsBoolean();
+        } else {
+            directPortal = true;
+        }
+        if(this.getConfig().has("ggWerbung")) {
+            ggWerbung = getConfig().get("ggWerbung").getAsBoolean();
+        } else {
+            ggWerbung = false;
+        }
+        if(this.getConfig().has("nameFokus")) {
+            nameFokus = getConfig().get("nameFokus").getAsString();
+        } else {
+            nameFokus = "Name1";
+        }
+        if(this.getConfig().has("nameFokus2")) {
+            nameFokus2 = getConfig().get("nameFokus2").getAsString();
+        } else {
+            nameFokus2 = "Name2";
+        }
+        if(this.getConfig().has("customEnabled")) {
+            customEnabled = getConfig().get("customEnabled").getAsBoolean();
+        } else {
+            customEnabled = false;
+        }
+        if(this.getConfig().has("kontostandMessage")) {
+            kontostandMessage = getConfig().get("kontostandMessage").getAsString();
+        } else {
+            kontostandMessage = "&aDein Guthaben beträgt &e%money$&a.";
+        }
+        if(this.getConfig().has("bankguthabenMessage")) {
+            bankguthabenMessage = getConfig().get("bankguthabenMessage").getAsString();
+        } else {
+            bankguthabenMessage = "&aDu hast auf der Bank &e%money$&a.";
+        }
+        if(this.getConfig().has("getmoneyMessage")) {
+            getmoneyMessage = getConfig().get("getmoneyMessage").getAsString();
+        } else {
+            getmoneyMessage = "&aDu hast von dem Spieler §e%player &aden folgenden Betrag erhalten: &e%money$";
+        }
+        if(this.getConfig().has("getSendmoneyMessage")) {
+            getSendmoneyMessage = getConfig().get("getSendmoneyMessage").getAsString();
+        } else {
+            getSendmoneyMessage = "&aDu hast dem Spieler &e%player &afolgenden Betrag überwiesen: &e%money";
+        }
+        if(this.getConfig().has("getMSGMessage")) {
+            getMSGMessage = getConfig().get("getMSGMessage").getAsString();
+        } else {
+            getMSGMessage = "&c[&4PRIVAT&c] &e%player -> %me&8: &f%message";
+        }
+        if(this.getConfig().has("getSendMSGMessage")) {
+            getSendMSGMessage = getConfig().get("getSendMSGMessage").getAsString();
+        } else {
+            getSendMSGMessage = "&c[&4PRIVAT&c] &e%me -> %player&8: &f%message";
+        }
+        if(this.getConfig().has("commandsEnabled")) {
+            commandsEnabled = getConfig().get("commandsEnabled").getAsBoolean();
+        } else {
+            commandsEnabled = true;
+        }
+        if(this.getConfig().has("hideSupremeBar")) {
+            hideSupremeBar = getConfig().get("hideSupremeBar").getAsBoolean();
+        } else {
+            hideSupremeBar = false;
+        }
+        if(this.getConfig().has("hideFakeMoney")) {
+            hideFakeMoney = getConfig().get("hideFakeMoney").getAsBoolean();
+        } else {
+            hideFakeMoney = false;
+        }
+        if(this.getConfig().has("MSGschat")) {
+            MSGschat = getConfig().get("MSGschat").getAsBoolean();
+        } else {
+            MSGschat = false;
+        }
+        if(this.getConfig().has("Moneyschat")) {
+            Moneyschat = getConfig().get("Moneyschat").getAsBoolean();
+        } else {
+            Moneyschat = false;
+        }
+        if(this.getConfig().has("Bankschat")) {
+            Bankschat = getConfig().get("Bankschat").getAsBoolean();
+        } else {
+            Bankschat = false;
+        }
+        if(this.getConfig().has("Mobremoverschat")) {
+            Mobremoverschat = getConfig().get("Mobremoverschat").getAsBoolean();
+        } else {
+            Mobremoverschat = false;
+        }
+        if(this.getConfig().has("chatFilter")) {
+            chatFilter = getConfig().get("chatFilter").getAsString();
+        } else {
+            chatFilter = "Disabled";
+        }
+        if(this.getConfig().has("chatEnabled")) {
+            chatEnabled = getConfig().get("chatEnabled").getAsBoolean();
+        } else {
+            chatEnabled = true;
+        }
+        if(this.getConfig().has("chatFilterEnabled")) {
+            chatFilterEnabled = getConfig().get("chatFilterEnabled").getAsBoolean();
+        } else {
+            chatFilterEnabled = false;
+        }
+        if(this.getConfig().has("Kontoschat")) {
+            Kontoschat = getConfig().get("Kontoschat").getAsBoolean();
+        } else {
+            Kontoschat = false;
+        }
+        if(this.getConfig().has("Plotschat")) {
+            Plotschat = getConfig().get("Plotschat").getAsBoolean();
+        } else {
+            Plotschat = false;
+        }
+        if(this.getConfig().has("deleteIDPC")) {
+            deleteIDPC = getConfig().get("deleteIDPC").getAsBoolean();
+        } else {
+            deleteIDPC = false;
+        }
+        if(this.getConfig().has("statusEnabled")) {
+            statusEnabled = getConfig().get("statusEnabled").getAsBoolean();
+        } else {
+            statusEnabled = false;
+        }
+        if(this.getConfig().has("status")) {
+            status = getConfig().get("status").getAsString();
+        } else {
+            status = "Hier steht mein Status!";
+        }
+    }
+
+    @Override
+    protected void fillSettings(List<SettingsElement> list) {
+
+        list.add(new HeaderElement("- GrieferGamesAddon by AboBuddie -"));
+
+        final BooleanElement booleanElement = new BooleanElement("Enabled", new ControlElement.IconData(Material.EMERALD), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean enabled) {
+                GrieferGamesAddon.this.enabled = enabled;
+
+                GrieferGamesAddon.this.getConfig().addProperty("enabled", enabled);
+            }
+
+        }, this.enabled);
+        list.add(booleanElement);
+
+        list.add(new HeaderElement("- GrieferGames.NET Einstellungen -"));
+
+        final BooleanElement booleanElement2 = new BooleanElement("Direkt ins Portal", new ControlElement.IconData(Material.NETHER_FENCE), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean directPortal) {
+                GrieferGamesAddon.this.directPortal = directPortal;
+
+                GrieferGamesAddon.this.getConfig().addProperty("directPortal", directPortal);
+            }
+
+        }, this.directPortal);
+        list.add(booleanElement2);
+
+        final BooleanElement booleanElement3 = new BooleanElement("GrieferGames Werbung", new ControlElement.IconData(Material.COBBLE_WALL), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean ggWerbung) {
+                GrieferGamesAddon.this.ggWerbung = ggWerbung;
+
+                GrieferGamesAddon.this.getConfig().addProperty("ggWerbung", ggWerbung);
+            }
+
+        }, this.ggWerbung);
+        list.add(booleanElement3);
+
+        list.add(new HeaderElement("- Status Einstellungen -"));
+
+        final BooleanElement booleanElement18 = new BooleanElement("Status senden", new ControlElement.IconData(Material.LEVER), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean statusEnabled) {
+                GrieferGamesAddon.this.statusEnabled = statusEnabled;
+
+                GrieferGamesAddon.this.getConfig().addProperty("statusEnabled", statusEnabled);
+            }
+
+        }, this.statusEnabled);
+        list.add(booleanElement18);
+
+        StringElement channelStringElement8 = new StringElement("Statusnachricht", new ControlElement.IconData(Material.PAPER), status, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                status = s.replaceAll("&", "§");
+
+                GrieferGamesAddon.this.getConfig().addProperty("status", s);
+            }
+        });
+        list.add(channelStringElement8);
+
+        list.add(new HeaderElement("- Sofortiges Zurückzahlen -"));
+
+        final BooleanElement booleanElement4 = new BooleanElement("Payback", new ControlElement.IconData(Material.CACTUS), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean paybackEnabled) {
+                GrieferGamesAddon.this.paybackEnabled = paybackEnabled;
+            }
+
+        }, this.paybackEnabled);
+        list.add(booleanElement4);
+
+        StringElement channelStringElement = new StringElement("Namefokus", new ControlElement.IconData(Material.NAME_TAG), nameFokus, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                nameFokus = s.replaceAll("&", "§");
+
+                GrieferGamesAddon.this.getConfig().addProperty("nameFokus", s);
+            }
+        });
+        list.add(channelStringElement);
+
+        StringElement channelStringElement2 = new StringElement("Namefokus 2", new ControlElement.IconData(Material.NAME_TAG), nameFokus2, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                nameFokus2 = s.replaceAll("&", "§");
+
+                GrieferGamesAddon.this.getConfig().addProperty("nameFokus2", s);
+            }
+        });
+        list.add(channelStringElement2);
+
+        final BooleanElement booleanElement1 = new BooleanElement("Payback All?", new ControlElement.IconData(Material.GOLD_NUGGET), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean payAll) {
+                GrieferGamesAddon.this.payAll = payAll;
+            }
+        }, this.payAll);
+        list.add(booleanElement1);
+
+        list.add(new HeaderElement("- GrieferGames.NET Nachrichten einstellen -"));
+
+        final BooleanElement booleanElement17 = new BooleanElement("Show only PlotChat (No ID)", new ControlElement.IconData(Material.ARROW), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean deleteIDPC) {
+                GrieferGamesAddon.this.deleteIDPC = deleteIDPC;
+
+                GrieferGamesAddon.this.getConfig().addProperty("deleteIDPC", deleteIDPC);
+            }
+
+        }, this.deleteIDPC);
+        list.add(booleanElement17);
+
+        final BooleanElement booleanElement5 = new BooleanElement("Custom Messages", new ControlElement.IconData(Material.SIGN), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean customEnabled) {
+                GrieferGamesAddon.this.customEnabled = customEnabled;
+
+                GrieferGamesAddon.this.getConfig().addProperty("customEnabled", customEnabled);
+            }
+
+        }, this.customEnabled);
+        list.add(booleanElement5);
+
+        StringElement channelStringElement3 = new StringElement("Kontostand Message", new ControlElement.IconData(Material.SIGN), kontostandMessage, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                kontostandMessage = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("kontostandMessage", s);
+            }
+        });
+        list.add(channelStringElement3);
+
+        StringElement channelStringElement4 = new StringElement("Bank Message", new ControlElement.IconData(Material.SIGN), bankguthabenMessage, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                bankguthabenMessage = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("bankguthabenMessage", s);
+            }
+        });
+        list.add(channelStringElement4);
+
+        StringElement channelStringElement5 = new StringElement("Receive Money Message", new ControlElement.IconData(Material.SIGN), getmoneyMessage, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                getmoneyMessage = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("getmoneyMessage", s);
+            }
+        });
+        list.add(channelStringElement5);
+
+        StringElement channelStringElement7 = new StringElement("Send Money Message", new ControlElement.IconData(Material.SIGN), getSendmoneyMessage, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                getSendmoneyMessage = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("getSendmoneyMessage", s);
+            }
+        });
+        list.add(channelStringElement7);
+
+        StringElement channelStringElement6 = new StringElement("Receive MSG Message", new ControlElement.IconData(Material.SIGN), getMSGMessage, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                getMSGMessage = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("getMSGMessage", s);
+            }
+        });
+        list.add(channelStringElement6);
+
+        StringElement channelStringElement9 = new StringElement("Send MSG Message", new ControlElement.IconData(Material.SIGN), getSendMSGMessage, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                getSendMSGMessage = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("getSendMSGMessage", s);
+            }
+        });
+        list.add(channelStringElement9);
+
+        list.add(new HeaderElement("- Chat Filter -"));
+
+        final BooleanElement booleanElement14 = new BooleanElement("Chatnachrichten", new ControlElement.IconData(Material.BARRIER), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean chatEnabled) {
+                GrieferGamesAddon.this.chatEnabled = chatEnabled;
+
+                GrieferGamesAddon.this.getConfig().addProperty("chatEnabled", chatEnabled);
+            }
+
+        }, this.chatEnabled);
+        list.add(booleanElement14);
+
+        final BooleanElement booleanElement15 = new BooleanElement("Chat Filter", new ControlElement.IconData(Material.HOPPER_MINECART), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean chatFilterEnabled) {
+                GrieferGamesAddon.this.chatFilterEnabled = chatFilterEnabled;
+
+                GrieferGamesAddon.this.getConfig().addProperty("chatEnabled", chatFilterEnabled);
+            }
+
+        }, this.chatFilterEnabled);
+        list.add(booleanElement15);
+
+        StringElement channelStringElement10 = new StringElement("Chat Filter", new ControlElement.IconData(Material.HOPPER), chatFilter, new Consumer<String>() {
+            @Override
+            public void accept(String s) {
+                chatFilter = s;
+
+                GrieferGamesAddon.this.getConfig().addProperty("chatFilter", s);
+            }
+        });
+        list.add(channelStringElement10);
+
+        list.add(new HeaderElement("- Chat Einstellungen -"));
+
+        final BooleanElement booleanElement6 = new BooleanElement("Chat Commands", new ControlElement.IconData(Material.REDSTONE_COMPARATOR), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean commandsEnabled) {
+                GrieferGamesAddon.this.commandsEnabled = commandsEnabled;
+
+                GrieferGamesAddon.this.getConfig().addProperty("chatCommands", commandsEnabled);
+            }
+
+        }, this.commandsEnabled);
+        list.add(booleanElement6);
+
+        final BooleanElement booleanElement11 = new BooleanElement("Hide Supreme Spaces", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean hideSupremeBar) {
+                GrieferGamesAddon.this.hideSupremeBar = hideSupremeBar;
+
+                GrieferGamesAddon.this.getConfig().addProperty("hideSupremeBar", hideSupremeBar);
+            }
+
+        }, this.hideSupremeBar);
+        list.add(booleanElement11);
+
+        final BooleanElement booleanElement12 = new BooleanElement("Hide Fake Money", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean hideFakeMoney) {
+                GrieferGamesAddon.this.hideFakeMoney = hideFakeMoney;
+
+                GrieferGamesAddon.this.getConfig().addProperty("hideFakeMoney", hideFakeMoney);
+            }
+
+        }, this.hideFakeMoney);
+        list.add(booleanElement12);
+
+        list.add(new HeaderElement("- Secondary Chat Einstellungen -"));
+
+        final BooleanElement booleanElement7 = new BooleanElement("Private MSG", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean MSGschat) {
+                GrieferGamesAddon.this.MSGschat = MSGschat;
+
+                GrieferGamesAddon.this.getConfig().addProperty("MSGschat", MSGschat);
+            }
+
+        }, this.MSGschat);
+        list.add(booleanElement7);
+
+        final BooleanElement booleanElement8 = new BooleanElement("Money Transfer", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean Moneyschat) {
+                GrieferGamesAddon.this.Moneyschat = Moneyschat;
+
+                GrieferGamesAddon.this.getConfig().addProperty("Moneyschat", Moneyschat);
+            }
+
+        }, this.Moneyschat);
+        list.add(booleanElement8);
+
+        final BooleanElement booleanElement9 = new BooleanElement("Bank Log", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean Bankschat) {
+                GrieferGamesAddon.this.Bankschat = Bankschat;
+
+                GrieferGamesAddon.this.getConfig().addProperty("Bankschat", Bankschat);
+            }
+
+        }, this.Bankschat);
+        list.add(booleanElement9);
+
+        final BooleanElement booleanElement10 = new BooleanElement("Mobremover Alert", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean Mobremoverschat) {
+                GrieferGamesAddon.this.Mobremoverschat = Mobremoverschat;
+
+                GrieferGamesAddon.this.getConfig().addProperty("Mobremoverschat", Mobremoverschat);
+            }
+
+        }, this.Mobremoverschat);
+        list.add(booleanElement10);
+
+        final BooleanElement booleanElement13 = new BooleanElement("Kontostand", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean Kontoschat) {
+                GrieferGamesAddon.this.Kontoschat = Kontoschat;
+
+                GrieferGamesAddon.this.getConfig().addProperty("Kontoschat", Kontoschat);
+            }
+
+        }, this.Kontoschat);
+        list.add(booleanElement13);
+
+        final BooleanElement booleanElement16 = new BooleanElement("Plot Chat", new ControlElement.IconData(Material.REDSTONE_TORCH_ON), new Consumer<Boolean>() {
+
+            @Override
+            public void accept(final Boolean Plotschat) {
+                GrieferGamesAddon.this.Plotschat = Plotschat;
+
+                GrieferGamesAddon.this.getConfig().addProperty("Plotschat", Plotschat);
+            }
+
+        }, this.Plotschat);
+        list.add(booleanElement16);
+    }
+
+    public Integer randomNumber(Integer Max) {
+        Random rdm = new Random();
+        Integer out = rdm.nextInt(Max);
+        return out;
+    }
+
+    public String getFirstArgument(String[] args) {
+        return args[0];
+    }
+}
